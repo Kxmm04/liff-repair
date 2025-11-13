@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>LIFF Auto Login</title>
+  <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+</head>
+<body>
+
+<h2>กำลังดึงข้อมูล...</h2>
+
+<script>
+  const liffId = "YOUR_LIFF_ID";  // <<— ใส่ LIFF ID ตรงนี้
+
+  async function main() {
+    await liff.init({ liffId });
+
+    // ถ้ายังไม่ Login → เด้งหน้ายอมรับทันที
+    if (!liff.isLoggedIn()) {
+      liff.login();
+      return;
+    }
+
+    // หลังจาก user กดยอมรับ → มาตรงนี้
+    const profile = await liff.getProfile();
+
+    document.body.innerHTML = `
+      <h2>ยืนยันตัวตนสำเร็จ</h2>
+      <p><b>userId:</b> ${profile.userId}</p>
+      <p><b>ชื่อ:</b> ${profile.displayName}</p>
+    `;
+  }
+
+  main();
+</script>
+
+</body>
+</html>
