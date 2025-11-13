@@ -2,33 +2,78 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>LIFF Auto Login</title>
+  <title>ระบบแจ้งซ่อม</title>
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    h2 { margin-bottom: 10px; }
+    input, textarea, button {
+      width: 100%; padding: 10px; margin-top: 10px;
+      border-radius: 8px; border: 1px solid #ccc;
+      font-size: 16px; box-sizing: border-box;
+    }
+    button { background: #06c755; color: white; border: none; cursor: pointer; }
+    button:active { opacity: 0.8; }
+    #result { margin-top: 15px; color: #333; white-space: pre-line; }
+  </style>
 </head>
 <body>
 
-<h2>กำลังดึงข้อมูล...</h2>
+<h2>ฟอร์มแจ้งซ่อม</h2>
+
+<textarea id="detail" placeholder="รายละเอียดปัญหา เช่น แอร์ไม่เย็น ไฟไม่ติด"></textarea>
+<input id="location" placeholder="สถานที่ เช่น ชั้น 3 ห้องประชุม A">
+
+<button id="btnSend">ส่งแจ้งซ่อม</button>
+
+<pre id="result"></pre>
 
 <script>
-  const liffId = "2008490855-lyx4zba6";  // <<— ใส่ LIFF ID ตรงนี้
+  const liffId = "YOUR_LIFF_ID";  // TODO: ใส่ LIFF ID ของคุณ
+  const n8nWebhookUrl = "https://YOUR_N8N_DOMAIN/webhook/repair"; // TODO: ใส่ URL จริง
 
   async function main() {
     await liff.init({ liffId });
 
-    // ถ้ายังไม่ Login → เด้งหน้ายอมรับทันที
+    // ถ้ายังไม่ login → เด้งหน้า Allow ทันที
     if (!liff.isLoggedIn()) {
       liff.login();
       return;
     }
 
-    // หลังจาก user กดยอมรับ → มาตรงนี้
     const profile = await liff.getProfile();
+    const userId = profile.userId;
+    const displayName = profile.displayName;
 
-    document.body.innerHTML = `
-      <h2>ยืนยันตัวตนสำเร็จ</h2>
-      <p><b>userId:</b> ${profile.userId}</p>
-      <p><b>ชื่อ:</b> ${profile.displayName}</p>
-    `;
+    document.getElementById("btnSend").onclick = async () => {
+      const detail = document.getElementById("detail").value.trim();
+      const location = document.getElementById("location").value.trim();
+
+      if (!detail) {
+        document.getElementById("result").innerText = "กรุณากรอกรายละเอียดปัญหาก่อน";
+        return;
+      }
+
+      const payload = {
+        userId,
+        displayName,
+        detail,
+        location,
+        datetime: new Date().toISOString()
+      };
+
+      try {
+        await fetch(n8nWebhookUrl, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+
+        document.getElementById("result").innerText = "ส่งแจ้งซ่อมสำเร็จแล้ว ขอบคุณค่ะ/ครับ";
+      } catch (err) {
+        document.getElementById("result").innerText = "ส่งข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+      }
+    };
   }
 
   main();
