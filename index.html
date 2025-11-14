@@ -1,83 +1,201 @@
 <!DOCTYPE html>
-<html>
+<html lang="th">
 <head>
-  <meta charset="utf-8">
-  <title>ระบบแจ้งซ่อม</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ลงทะเบียนผู้ใช้งาน</title>
+
   <script src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+
   <style>
-    body { font-family: sans-serif; padding: 20px; }
-    h2 { margin-bottom: 10px; }
-    input, textarea, button {
-      width: 100%; padding: 10px; margin-top: 10px;
-      border-radius: 8px; border: 1px solid #ccc;
-      font-size: 16px; box-sizing: border-box;
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      padding: 20px;
+      background: #f5f5f5;
     }
-    button { background: #06c755; color: white; border: none; cursor: pointer; }
-    button:active { opacity: 0.8; }
-    #result { margin-top: 15px; color: #333; white-space: pre-line; }
+    .card {
+      max-width: 420px;
+      margin: 0 auto;
+      background: #fff;
+      padding: 20px;
+      border-radius: 16px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.06);
+    }
+    h2 {
+      margin-top: 0;
+    }
+    .input-box {
+      margin-bottom: 16px;
+    }
+    label {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 14px;
+      color: #444;
+    }
+    input {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      border: 1px solid #ccc;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    button {
+      background-color: #00c300;
+      color: white;
+      padding: 12px 16px;
+      border: none;
+      border-radius: 10px;
+      width: 100%;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+    #result {
+      margin-top: 16px;
+      font-size: 14px;
+    }
+    #result.error {
+      color: #d9534f;
+    }
+    #result.ok {
+      color: #28a745;
+    }
   </style>
 </head>
+
 <body>
+  <div class="card">
+    <h2>ลงทะเบียนผู้ใช้งาน</h2>
+    <p id="status" style="font-size:13px;color:#666;">กำลังโหลดข้อมูลจาก LINE...</p>
 
-<h2>ฟอร์มแจ้งซ่อม</h2>
+    <div class="input-box">
+      <label>ชื่อ – สกุล</label>
+      <input id="name" type="text" placeholder="กรอกชื่อ" />
+    </div>
 
-<textarea id="detail" placeholder="รายละเอียดปัญหา เช่น แอร์ไม่เย็น ไฟไม่ติด"></textarea>
-<input id="location" placeholder="สถานที่ เช่น ชั้น 3 ห้องประชุม A">
+    <div class="input-box">
+      <label>อีเมล</label>
+      <input id="email" type="email" placeholder="กรอกอีเมล" />
+    </div>
 
-<button id="btnSend">ส่งแจ้งซ่อม</button>
+    <button id="registerBtn" disabled>ลงทะเบียน</button>
 
-<pre id="result"></pre>
+    <p id="result"></p>
+  </div>
 
-<script>
-  const liffId = "2008490855-lyx4zba6";  // TODO: ใส่ LIFF ID ของคุณ
-  const n8nWebhookUrl = "https://forecasts-spring-wednesday-len.trycloudflare.com/webhook-test/register"; // TODO: ใส่ URL จริง
+  <script>
+    // 🔧 ปรับสองค่าตรงนี้ให้ตรงของคุณ
+    const API_URL = "https://commentary-annie-annex-theories.trycloudflare.com/webhook/register-user-v2";
+    const LIFF_ID = "2008497266-PDJkB0Vm"; // <-- ใส่ LIFF ID จริงของคุณ
 
-  async function main() {
-    await liff.init({ liffId });
+    let lineId = null;
 
-    // ถ้ายังไม่ login → เด้งหน้า Allow ทันที
-    if (!liff.isLoggedIn()) {
-      liff.login();
-      return;
+    const statusEl  = document.getElementById("status");
+    const resultEl  = document.getElementById("result");
+    const btn       = document.getElementById("registerBtn");
+    const nameInput = document.getElementById("name");
+    const emailInput= document.getElementById("email");
+
+    function setResult(message, isError = false) {
+      resultEl.textContent = message;
+      resultEl.className = "";
+      if (isError) {
+        resultEl.classList.add("error");
+      } else {
+        resultEl.classList.add("ok");
+      }
     }
 
-    const profile = await liff.getProfile();
-    const userId = profile.userId;
-    const displayName = profile.displayName;
-
-    document.getElementById("btnSend").onclick = async () => {
-      const detail = document.getElementById("detail").value.trim();
-      const location = document.getElementById("location").value.trim();
-
-      if (!detail) {
-        document.getElementById("result").innerText = "กรุณากรอกรายละเอียดปัญหาก่อน";
-        return;
-      }
-
-      const payload = {
-        userId,
-        displayName,
-        detail,
-        location,
-        datetime: new Date().toISOString()
-      };
-
+    async function initLiff() {
       try {
-        await fetch(n8nWebhookUrl, {
+        statusEl.textContent = "กำลังเชื่อมต่อกับ LIFF...";
+        await liff.init({ liffId: LIFF_ID });
+
+        if (!liff.isLoggedIn()) {
+          statusEl.textContent = "กำลังเข้าสู่ระบบ LINE...";
+          liff.login();
+          return;
+        }
+
+        const profile = await liff.getProfile();
+        lineId = profile.userId;
+
+        // auto-fill ชื่อจากโปรไฟล์ LINE ถ้ายังไม่กรอก
+        if (!nameInput.value) {
+          nameInput.value = profile.displayName || "";
+        }
+
+        statusEl.textContent = "เชื่อมต่อกับ LINE สำเร็จ ✔";
+        btn.disabled = false;
+      } catch (err) {
+        console.error("LIFF init error:", err);
+        statusEl.textContent = "เชื่อมต่อกับ LIFF ไม่สำเร็จ";
+        setResult("ไม่สามารถเชื่อมต่อกับ LIFF ได้: " + err, true);
+      }
+    }
+
+    async function registerUser() {
+      try {
+        if (!lineId) {
+          setResult("ไม่พบ LINE ID กรุณาปิดแล้วเปิดใหม่อีกครั้ง", true);
+          return;
+        }
+
+        const name  = nameInput.value.trim();
+        const email = emailInput.value.trim();
+
+        if (!name || !email) {
+          setResult("กรุณากรอกชื่อและอีเมลให้ครบ", true);
+          return;
+        }
+
+        btn.disabled = true;
+        setResult("กำลังส่งข้อมูลลงทะเบียน...", false);
+
+        const body = { name, email, lineId };
+
+        console.log("Sending to API:", body);
+
+        const res = await fetch(API_URL, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload)
+          body: JSON.stringify(body),
         });
 
-        document.getElementById("result").innerText = "ส่งแจ้งซ่อมสำเร็จแล้ว ขอบคุณค่ะ/ครับ";
+        const text = await res.text();
+        console.log("Raw response:", text);
+
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch (_) {
+          data = { message: text || "ไม่มีข้อความตอบกลับจากเซิร์ฟเวอร์" };
+        }
+
+        if (!res.ok) {
+          setResult("API error: " + (data.message || res.status), true);
+        } else {
+          setResult(data.message || "ลงทะเบียนสำเร็จ!", false);
+        }
+
+        // ถ้าอยากปิด LIFF หลังสำเร็จ:
+        // setTimeout(() => liff.closeWindow(), 1500);
+
       } catch (err) {
-        document.getElementById("result").innerText = "ส่งข้อมูลไม่สำเร็จ กรุณาลองใหม่อีกครั้ง";
+        console.error("registerUser error:", err);
+        setResult("เกิดข้อผิดพลาด: " + err, true);
+      } finally {
+        btn.disabled = false;
       }
-    };
-  }
+    }
 
-  main();
-</script>
-
+    btn.addEventListener("click", registerUser);
+    initLiff();
+  </script>
 </body>
 </html>
